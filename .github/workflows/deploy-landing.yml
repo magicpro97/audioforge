@@ -23,6 +23,7 @@ jobs:
 
       - name: Apply hosting target
         run: firebase target:apply hosting audioforge audioforge --project linh-s-blog
+        working-directory: ./landing
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
