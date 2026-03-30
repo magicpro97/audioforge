@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import { createProvider } from '../../providers/index.js';
 import { loadConfig, getProviderApiKey } from '../../core/config.js';
 import { saveAudio } from '../../core/output.js';
+import { estimateCost } from '../../core/pricing.js';
 
 interface BatchOptions {
   dryRun?: boolean;
@@ -52,6 +53,7 @@ export async function batchCommand(file: string, options: BatchOptions): Promise
   const config = loadConfig();
   let succeeded = 0;
   let failed = 0;
+  let totalCost = 0;
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
@@ -75,6 +77,8 @@ export async function batchCommand(file: string, options: BatchOptions): Promise
         : await provider.generate(request);
 
       saveAudio(result, item.output, item.format || config.defaults.format);
+      const cost = estimateCost(providerName, request.model || '', { duration: request.duration });
+      totalCost += cost;
       spinner.succeed(`[${i + 1}/${items.length}] Done`);
       succeeded++;
     } catch (err: any) {
@@ -85,5 +89,8 @@ export async function batchCommand(file: string, options: BatchOptions): Promise
 
   console.log('');
   console.log(chalk.bold(`  Results: ${chalk.green(`${succeeded} succeeded`)}, ${failed > 0 ? chalk.red(`${failed} failed`) : '0 failed'}`));
+  if (totalCost > 0) {
+    console.log(chalk.dim(`  Estimated cost: $${totalCost.toFixed(4)}`));
+  }
   console.log('');
 }
