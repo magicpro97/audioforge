@@ -7,6 +7,7 @@ import { resolveDuration } from '../../core/durations.js';
 import { estimateCost } from '../../core/pricing.js';
 import { getTemplate, renderTemplate } from '../../core/templates.js';
 import { openFile } from '../../core/opener.js';
+import { getPlatformSpec } from '../../core/platforms.js';
 import type { AudioGenerationRequest } from '../../types/index.js';
 
 interface GenerateOptions {
@@ -21,6 +22,7 @@ interface GenerateOptions {
   open?: boolean;
   template?: string;
   var?: string[];
+  platform?: string;
 }
 
 export async function generateCommand(prompt: string, options: GenerateOptions): Promise<void> {
@@ -85,11 +87,21 @@ export async function generateCommand(prompt: string, options: GenerateOptions):
     process.exit(1);
   }
 
+  // Resolve platform spec
+  const platformSpec = options.platform ? getPlatformSpec(options.platform) : undefined;
+  if (options.platform && !platformSpec) {
+    console.error(chalk.red(`\n  ✗ Unknown platform "${options.platform}". Valid: ios, android, web, game\n`));
+    process.exit(1);
+  }
+
+  // Platform sets format if not explicitly overridden by --format
+  const resolvedFormat = (options.format as any) || (platformSpec?.format) || config.defaults.format;
+
   const request: AudioGenerationRequest = {
     prompt,
     model: options.model || config.defaults.model || undefined,
     duration,
-    format: (options.format as any) || config.defaults.format,
+    format: resolvedFormat,
     loop: options.loop,
     seed: options.seed ? parseInt(options.seed) : undefined,
   };
@@ -100,6 +112,7 @@ export async function generateCommand(prompt: string, options: GenerateOptions):
   console.log(chalk.dim(`  Model:    ${request.model || 'default'}`));
   console.log(chalk.dim(`  Duration: ${duration}s`));
   if (presetName) console.log(chalk.dim(`  Preset:   ${presetName}`));
+  if (platformSpec) console.log(chalk.dim(`  Platform: ${platformSpec.name} (${platformSpec.description})`));
   console.log(chalk.dim(`  Prompt:   "${prompt.slice(0, 60)}${prompt.length > 60 ? '...' : ''}"`));
   console.log('');
 
@@ -114,7 +127,7 @@ export async function generateCommand(prompt: string, options: GenerateOptions):
     result.cost = cost;
 
     // Save audio
-    const saveResult = saveAudio(result, options.output, options.format || config.defaults.format);
+    const saveResult = saveAudio(result, options.output, resolvedFormat);
     console.log('');
     for (const fp of saveResult.filePaths) {
       console.log(chalk.green(`  ✓ Saved: ${fp}`));

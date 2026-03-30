@@ -458,8 +458,8 @@ describe('presets', () => {
     expect(names.length).toBe(Object.keys(STYLE_PRESETS).length);
   });
 
-  it('STYLE_PRESETS has 15 presets', () => {
-    expect(Object.keys(STYLE_PRESETS).length).toBe(15);
+  it('STYLE_PRESETS has 24 presets', () => {
+    expect(Object.keys(STYLE_PRESETS).length).toBe(24);
   });
 });
 

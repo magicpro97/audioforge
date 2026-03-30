@@ -30,13 +30,14 @@ program
   .option('-m, --model <model>', 'Specific model to use')
   .option('-d, --duration <seconds>', `Duration in seconds or preset (${getDurationPresetNames().slice(0, 4).join(', ')}...)`)
   .option('-o, --output <path>', 'Output file path')
-  .option('-f, --format <type>', 'Output format (wav, mp3, ogg, flac)', 'wav')
+  .option('-f, --format <type>', 'Output format (wav, mp3, ogg, flac)')
   .option('-s, --preset <style>', `Style preset (${getPresetNames().slice(0, 5).join(', ')}...)`)
   .option('-t, --template <name>', 'Use a saved prompt template')
   .option('-v, --var <key=value...>', 'Template variable (repeatable)', (v: string, prev: string[]) => [...prev, v], [])
   .option('--seed <number>', 'Seed for reproducibility')
   .option('--loop', 'Generate seamless loop')
   .option('--open', 'Open audio after generation')
+  .option('--platform <name>', 'Target platform (ios, android, web, game) - auto-sets format')
   .action(generateCommand);
 
 // Generate Music
