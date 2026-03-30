@@ -1,9 +1,14 @@
 import { AudioProvider } from './base.js';
 import type { AudioGenerationRequest, AudioGenerationResult, ProviderInfo } from '../types/index.js';
+import {
+  falSubmitJob,
+  falPollStatus,
+  falGetResult,
+  type FalOptions,
+} from '@magicpro97/forge-core';
 
 export class FalProvider extends AudioProvider {
   private apiKey: string = '';
-  private baseUrl = 'https://queue.fal.run';
 
   get info(): ProviderInfo {
     return {
@@ -46,26 +51,15 @@ export class FalProvider extends AudioProvider {
       body.seed = request.seed;
     }
 
-    // Submit to queue
-    const submitResponse = await fetch(`${this.baseUrl}/${model}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Key ${this.apiKey}`,
-      },
-      body: JSON.stringify(body),
-    });
+    const falOpts: FalOptions = { apiKey: this.apiKey };
 
-    if (!submitResponse.ok) {
-      const errorData = await submitResponse.json().catch(() => ({}));
-      const msg = (errorData as any)?.detail || submitResponse.statusText;
-      throw new Error(`fal.ai API error (${submitResponse.status}): ${msg}`);
-    }
-
-    const result: any = await submitResponse.json();
+    // Submit job and get result via forge-core
+    const requestId = await falSubmitJob(falOpts, model, body);
+    await falPollStatus(falOpts, model, requestId);
+    const result = await falGetResult(falOpts, model, requestId);
 
     // Get audio URL from result
-    const audioUrl = result.audio_file?.url || result.audio?.url || result.output?.url;
+    const audioUrl = (result as any).audio_file?.url || (result as any).audio?.url || (result as any).output?.url;
     if (!audioUrl) {
       throw new Error('fal.ai: No audio URL in response');
     }

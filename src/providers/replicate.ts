@@ -1,5 +1,11 @@
 import { AudioProvider } from './base.js';
 import type { AudioGenerationRequest, AudioGenerationResult, ProviderInfo } from '../types/index.js';
+import {
+  replicateValidateApiKey,
+  replicatePollPrediction,
+  type ReplicateOptions,
+  type ReplicatePrediction,
+} from '@magicpro97/forge-core';
 
 export class ReplicateProvider extends AudioProvider {
   private apiKey: string = '';
@@ -27,14 +33,7 @@ export class ReplicateProvider extends AudioProvider {
 
   async validate(): Promise<boolean> {
     if (!this.apiKey) return false;
-    try {
-      const response = await fetch(`${this.baseUrl}/account`, {
-        headers: { Authorization: `Token ${this.apiKey}` },
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
+    return replicateValidateApiKey({ apiKey: this.apiKey, baseUrl: this.baseUrl });
   }
 
   async generate(request: AudioGenerationRequest): Promise<AudioGenerationResult> {
@@ -71,37 +70,27 @@ export class ReplicateProvider extends AudioProvider {
       throw new Error(`Replicate API error (${createResponse.status}): ${msg}`);
     }
 
-    const prediction: any = await createResponse.json();
-    let status = prediction.status;
-    let output = prediction.output;
-    let pollUrl = prediction.urls?.get || `${this.baseUrl}/predictions/${prediction.id}`;
+    const prediction = await createResponse.json() as ReplicatePrediction;
 
-    // Poll for completion (max 5 minutes)
-    const maxWait = 300000;
-    const pollInterval = 3000;
-    let waited = 0;
-
-    while (status !== 'succeeded' && status !== 'failed' && waited < maxWait) {
-      await new Promise(r => setTimeout(r, pollInterval));
-      waited += pollInterval;
-
-      const pollResponse = await fetch(pollUrl, {
-        headers: { Authorization: `Token ${this.apiKey}` },
-      });
-      const pollData: any = await pollResponse.json();
-      status = pollData.status;
-      output = pollData.output;
-    }
-
-    if (status === 'failed') {
+    let output: unknown;
+    if (prediction.status === 'succeeded') {
+      output = prediction.output;
+    } else if (prediction.status === 'failed') {
       throw new Error('Replicate prediction failed');
-    }
-    if (status !== 'succeeded') {
-      throw new Error('Replicate prediction timed out');
+    } else {
+      // Poll for completion using forge-core
+      const replicateOpts: ReplicateOptions = {
+        apiKey: this.apiKey,
+        baseUrl: this.baseUrl,
+        timeoutMs: 300000,
+        pollIntervalMs: 3000,
+      };
+      const completed = await replicatePollPrediction(replicateOpts, prediction);
+      output = completed.output;
     }
 
     // Download audio
-    const audioUrl = typeof output === 'string' ? output : output?.[0] || output?.audio;
+    const audioUrl = typeof output === 'string' ? output : (output as any)?.[0] || (output as any)?.audio;
     if (!audioUrl) {
       throw new Error('Replicate: No audio URL in prediction output');
     }

@@ -1,3 +1,5 @@
+import { estimateCostFromPricing } from '@magicpro97/forge-core';
+
 const PRICING: Record<string, Record<string, number>> = {
   elevenlabs: {
     'eleven_sfx_v2': 0.007,
@@ -25,17 +27,9 @@ export function estimateCost(
   model: string,
   options?: { duration?: number; operation?: string }
 ): number {
-  const providerPricing = PRICING[provider];
-  if (!providerPricing) return 0;
-
-  if (options?.operation) {
-    const opPrice = providerPricing[`_${options.operation}`];
-    /* v8 ignore next */
-    if (opPrice !== undefined) return opPrice;
-  }
-
-  /* v8 ignore next */
-  const baseCost = providerPricing[model] ?? providerPricing['_default'] ?? 0;
+  const baseCost = estimateCostFromPricing(PRICING, provider, model, {
+    operation: options?.operation,
+  });
 
   // Scale cost by duration (base price is per ~5 seconds)
   const duration = options?.duration || 5;
