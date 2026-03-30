@@ -23,6 +23,7 @@ interface GenerateOptions {
   template?: string;
   var?: string[];
   platform?: string;
+  dryRun?: boolean;
 }
 
 export async function generateCommand(prompt: string, options: GenerateOptions): Promise<void> {
@@ -115,6 +116,14 @@ export async function generateCommand(prompt: string, options: GenerateOptions):
   if (platformSpec) console.log(chalk.dim(`  Platform: ${platformSpec.name} (${platformSpec.description})`));
   console.log(chalk.dim(`  Prompt:   "${prompt.slice(0, 60)}${prompt.length > 60 ? '...' : ''}"`));
   console.log('');
+
+  // Dry run — show cost estimate without generating
+  if (options.dryRun) {
+    const cost = estimateCost(providerName, request.model || '', { duration });
+    console.log(chalk.cyan(`  💰 Estimated cost: ~$${cost.toFixed(4)}`));
+    console.log(chalk.dim('  (dry run — no API call made)\n'));
+    return;
+  }
 
   const spinner = ora({ text: 'Generating audio...', indent: 2 }).start();
 

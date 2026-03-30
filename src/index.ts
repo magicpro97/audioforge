@@ -38,6 +38,7 @@ program
   .option('--loop', 'Generate seamless loop')
   .option('--open', 'Open audio after generation')
   .option('--platform <name>', 'Target platform (ios, android, web, game) - auto-sets format')
+  .option('--dry-run', 'Show estimated cost without generating')
   .action(generateCommand);
 
 // Generate Music
