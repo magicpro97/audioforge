@@ -7,6 +7,11 @@ import {
   type ReplicatePrediction,
 } from '@magicpro97/forge-core';
 
+// Official models need version-based endpoint (model-based returns 404)
+const VERSION_MAP: Record<string, string> = {
+  'meta/musicgen': '671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb',
+};
+
 export class ReplicateProvider extends AudioProvider {
   private apiKey: string = '';
   private baseUrl = 'https://api.replicate.com/v1';
@@ -14,11 +19,11 @@ export class ReplicateProvider extends AudioProvider {
   get info(): ProviderInfo {
     return {
       name: 'replicate',
-      displayName: 'Replicate (MusicGen / AudioGen)',
-      description: "Meta's AudioCraft models — MusicGen for music, AudioGen for sound effects",
+      displayName: 'Replicate (MusicGen)',
+      description: "Meta's MusicGen — music and sound effects generation",
       requiresKey: true,
       website: 'https://replicate.com/',
-      models: ['meta/musicgen', 'meta/audiogen'],
+      models: ['meta/musicgen'],
       capabilities: { sfx: true, music: true, variations: true },
     };
   }
@@ -43,23 +48,27 @@ export class ReplicateProvider extends AudioProvider {
     const model = request.model || 'meta/musicgen';
     const duration = request.duration || 8;
 
-    const body = {
-      version: model === 'meta/audiogen'
-        ? 'audiogen-medium'
-        : 'melody-large',
-      input: {
-        prompt: request.prompt,
-        duration: Math.min(duration, 30),
-        ...(request.seed !== undefined ? { seed: request.seed } : {}),
-      },
+    const input: Record<string, unknown> = {
+      prompt: request.prompt,
+      duration: Math.min(duration, 30),
+      ...(request.seed !== undefined ? { seed: request.seed } : {}),
     };
 
-    // Create prediction
-    const createResponse = await fetch(`${this.baseUrl}/predictions`, {
+    // Official models (meta/*) need version-based endpoint; others use model-based
+    const version = VERSION_MAP[model];
+    const url = version
+      ? `${this.baseUrl}/predictions`
+      : `${this.baseUrl}/models/${model}/predictions`;
+    const body = version
+      ? { version, input }
+      : { input };
+
+    const createResponse = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Token ${this.apiKey}`,
+        Prefer: 'wait',
       },
       body: JSON.stringify(body),
     });
@@ -78,7 +87,6 @@ export class ReplicateProvider extends AudioProvider {
     } else if (prediction.status === 'failed') {
       throw new Error('Replicate prediction failed');
     } else {
-      // Poll for completion using forge-core
       const replicateOpts: ReplicateOptions = {
         apiKey: this.apiKey,
         baseUrl: this.baseUrl,

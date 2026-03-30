@@ -680,7 +680,7 @@ describe('ReplicateProvider', () => {
     vi.useRealTimers();
   });
 
-  it('generate uses audiogen version for audiogen model', async () => {
+  it('generate uses version-based endpoint for known model (meta/musicgen)', async () => {
     p.configure('key');
     mockFetch
       .mockResolvedValueOnce({
@@ -696,12 +696,16 @@ describe('ReplicateProvider', () => {
         arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
       });
 
-    await p.generate({ prompt: 'test', model: 'meta/audiogen' });
+    await p.generate({ prompt: 'test', model: 'meta/musicgen' });
+    const url = mockFetch.mock.calls[0][0];
+    expect(url).toContain('/predictions');
+    expect(url).not.toContain('/models/');
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.version).toBe('audiogen-medium');
+    expect(body.version).toBe('671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb');
+    expect(body.input.prompt).toBe('test');
   });
 
-  it('generate uses melody-large for musicgen model', async () => {
+  it('generate uses model-based endpoint for unknown models', async () => {
     p.configure('key');
     mockFetch
       .mockResolvedValueOnce({
@@ -717,9 +721,11 @@ describe('ReplicateProvider', () => {
         arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
       });
 
-    await p.generate({ prompt: 'test', model: 'meta/musicgen' });
+    await p.generate({ prompt: 'test', model: 'custom/audio-model' });
+    const url = mockFetch.mock.calls[0][0];
+    expect(url).toContain('/models/custom/audio-model/predictions');
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.version).toBe('melody-large');
+    expect(body.version).toBeUndefined();
   });
 
   it('generate uses default model when not specified', async () => {
@@ -965,6 +971,6 @@ describe('ReplicateProvider', () => {
   });
 
   it('listModels returns model list', async () => {
-    expect(await p.listModels()).toEqual(['meta/musicgen', 'meta/audiogen']);
+    expect(await p.listModels()).toEqual(['meta/musicgen']);
   });
 });
